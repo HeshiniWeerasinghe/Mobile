@@ -23,16 +23,33 @@ const socket = SocketIOClient("wss://kids-app.adaptable.app", {
   reconnectionAttempts: 5,
 });
 
-const sendLocationToAPI = (userId, username, latitude, longitude) => {
-  const requestData = {
-    userId: userId,
-    userUsername: username,
-    userLat: latitude.toString(),
-    userLong: longitude.toString(),
-  };
+const sendLocationToAPI = async (userId, username) => {
+  try {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      console.log("Permission to access location was denied");
+      return;
+    }
 
-  socket.emit("sendLocation", requestData);
-  console.log("Location data emitted successfully.");
+    let location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
+
+    const requestData = {
+      userId: userId,
+      userUsername: username,
+      userLat: latitude.toString(),
+      userLong: longitude.toString(),
+    };
+
+    socket.emit("sendLocation", requestData);
+
+    socket.on("sendLocation", (response) => {
+      // console.log("Response from server:", response.message);
+      // console.log("Location data emitted successfully.", requestData);
+    });
+  } catch (error) {
+    console.error("Error getting location:", error);
+  }
 };
 
 const SupportDetailsModal = ({ isVisible, onClose }) => {
@@ -119,7 +136,7 @@ const HomeScreen = ({ navigation }) => {
           .catch((error) => {
             console.log("Error fetching user location:", error);
           });
-      }, 5000); //5sec
+      }, 5000); //10sec
 
       return () => clearInterval(locationUpdateInterval);
     } else {

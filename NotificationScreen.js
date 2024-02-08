@@ -13,8 +13,11 @@ import { auth } from "./firebase";
 import { scheduleNotificationAsync } from "expo-notifications";
 import SocketIOClient from "socket.io-client";
 import axios from "axios";
-
+const sentNotifications = [];
 const NotificationScreen = () => {
+  const [displayedNotifications, setDisplayedNotifications] = useState(
+    new Set()
+  );
   const [notifications, setNotifications] = useState([]);
   const [userId, setUserId] = useState(
     auth.currentUser ? auth.currentUser.uid : null
@@ -30,17 +33,17 @@ const NotificationScreen = () => {
     });
 
     newSocket.on("connect", () => {
-      console.log("Connected to server on NotificationScreen.js");
+      // console.log("Connected to server on NotificationScreen.js");
       setSocket(newSocket);
       fetchNotifications();
     });
 
     newSocket.on("disconnect", () => {
-      console.log("Disconnected from server on NotificationScreen.js");
+      // console.log("Disconnected from server on NotificationScreen.js");
     });
 
     newSocket.on("getLocation", (data) => {
-      console.log("Incoming data on NotificationScreen.js", data);
+      // console.log("Incoming data on NotificationScreen.js", data);
     });
 
     return () => {
@@ -120,8 +123,10 @@ const NotificationScreen = () => {
       socket.emit("getLocation", data);
 
       socket.on("getLocation", (data) => {
+        console.log(data);
         const latestNotifications = data.slice(-9);
         setNotifications(latestNotifications);
+
         const latestNotification =
           latestNotifications.length > 0
             ? latestNotifications[latestNotifications.length - 1]
@@ -132,9 +137,23 @@ const NotificationScreen = () => {
           latestNotification.locationStartTime !== lastResponseTime &&
           userId !== lastResponseTime
         ) {
-          showPushNotification(
-            `New notification: ${latestNotification.sharedUsername}`
-          );
+          for (let i = 0; i < data.length; i++) {
+            if (sentNotifications.includes(data[i].sharedId)) {
+              // console.log("Data exists");
+            } else {
+              console.log("data false");
+
+              sentNotifications.push(data[i].sharedId);
+              showPushNotification(
+                `New notification: ${data[i].sharedUsername}`
+              );
+            }
+          }
+
+          //console.log(data[0]);
+          // showPushNotification(
+          //   `New notification: ${latestNotification.sharedUsername}`
+          // );
           setLastResponseTime(latestNotification.locationStartTime);
           setUserId(userId);
         }
@@ -154,11 +173,11 @@ const NotificationScreen = () => {
 
   useEffect(() => {
     if (userId) {
-      fetchNotifications(); // Initial fetch
+      fetchNotifications();
 
       const interval = setInterval(() => {
-        fetchNotifications(); // Fetch every 3 seconds
-      }, 3000);
+        fetchNotifications();
+      }, 13000);
 
       return () => clearInterval(interval);
     }
